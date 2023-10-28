@@ -12,6 +12,8 @@ namespace Cloudflare_API_Firewall.Controller
 
 		internal async Task EditFirewall(string oldIp, string newIp)
 		{
+			newIp = "11.11.11.11";
+
 			string apiToken = ConfigurationManager.AppSettings["ApiToken"];
 			string zoneId = ConfigurationManager.AppSettings["ZoneId"];
 			string ruleId = ConfigurationManager.AppSettings["RuleId"];
@@ -39,6 +41,7 @@ namespace Cloudflare_API_Firewall.Controller
 					// Display the extracted IP addresses
 					view.ChangeColor(ConsoleColor.Green);
 					view.Message("\nExtracted IP Addresses:");
+					view.ChangeColor(ConsoleColor.Blue);
 					foreach (string ipAddress in ipAddresses)
 					{
 						view.Message(ipAddress);
@@ -51,18 +54,41 @@ namespace Cloudflare_API_Firewall.Controller
 					expression = AddIPAddressToExpression(expression, newIp);
 
 					// Update the firewall rule with the modified expression
-					bool updated = await UpdateFirewallRule(client, zoneId, ruleId, expression);
-					if (updated)
+					string updatedResponse = await UpdateFirewallRule(client, zoneId, ruleId, expression);
+					if (updatedResponse.StartsWith("Error"))
 					{
-						view.ChangeColor(ConsoleColor.Green);
-						view.Message("Firewall rule updated successfully!");
+						view.ChangeColor(ConsoleColor.Red);
+						view.Message(updatedResponse);
 					}
 					else
 					{
-						view.ChangeColor(ConsoleColor.Red);
-						view.Message("Error updating firewall rule.");
+						view.ChangeColor(ConsoleColor.Green);
+						view.Message("Firewall rule updated successfully!");
+						// You can parse and process the updated response as needed
 					}
-                }
+
+					
+					HttpResponseMessage getResponse2 = await client.GetAsync($"https://api.cloudflare.com/client/v4/zones/{zoneId}/firewall/rules/{ruleId}");
+					if (getResponse.IsSuccessStatusCode)
+					{
+						string responseContent2 = await getResponse2.Content.ReadAsStringAsync();
+
+						string expression2 = ExtractExpressionFromResponse(responseContent2);
+
+						string[] ipAddresses2 = ExtractIPAddresses(expression2);
+
+						// Display the extracted IP addresses
+						view.ChangeColor(ConsoleColor.Green);
+						view.Message("\nExtracted IP Addresses:");
+						view.ChangeColor(ConsoleColor.Blue);
+						foreach (string ipAddress in ipAddresses2)
+						{
+							view.Message(ipAddress);
+						}
+						view.ChangeColor(ConsoleColor.Green);
+						view.Message("");
+					} 
+				}
 				else
 				{
 					view.ChangeColor(ConsoleColor.Red);
@@ -89,25 +115,75 @@ namespace Cloudflare_API_Firewall.Controller
 
 		static string AddIPAddressToExpression(string expression, string ipAddressToAdd)
 		{
-			// Add the new IP address to the expression
-			return expression + " " + ipAddressToAdd;
+			// Check if the expression already contains the new IP address
+			if (expression.Contains(ipAddressToAdd))
+			{
+				return expression; // IP address is already in the expression
+			}
+			else
+			{
+				// Split the expression to get the part inside the curly braces
+				int startIdx = expression.IndexOf("{");
+				int endIdx = expression.LastIndexOf("}");
+				if (startIdx >= 0 && endIdx >= 0)
+				{
+					string insideBraces = expression.Substring(startIdx + 1, endIdx - startIdx - 1);
+					// Add the new IP address to the existing ones inside the braces
+					insideBraces = string.Join(" ", insideBraces, ipAddressToAdd);
+					// Reconstruct the expression with the updated IP addresses inside the braces
+					return expression.Substring(0, startIdx + 1) + insideBraces + expression.Substring(endIdx);
+				}
+				else
+				{
+					// If the expression doesn't contain curly braces, just add the new IP address in curly braces
+					return $"({expression} {ipAddressToAdd})";
+				}
+			}
 		}
 
-		static async Task<bool> UpdateFirewallRule(HttpClient client, string zoneId, string ruleId, string newExpression)
+
+
+		internal async Task<string> UpdateFirewallRule(HttpClient client, string zoneId, string ruleId, string newExpression)
 		{
-			// Build the JSON payload for the change
-			var payload = new
+			string filterId = ConfigurationManager.AppSettings["FilterId"];
+
+			Console.WriteLine(newExpression);
+
+			var updatePayload = new
 			{
-				expression = newExpression
+				id = ruleId,
+				paused = false,
+				description = "test",
+				action = "block",
+				filter = new
+				{
+					id = filterId,
+					expression = newExpression,
+					paused = false
+				}
 			};
 
-			string jsonPayload = Newtonsoft.Json.JsonConvert.SerializeObject(payload);
+			string jsonPayload = Newtonsoft.Json.JsonConvert.SerializeObject(updatePayload);
+			HttpContent content = new StringContent(jsonPayload, Encoding.UTF8, "application/json");
+			string test = await content.ReadAsStringAsync();
 
-			// Send a PATCH request to update the firewall rule with the new expression
-			HttpResponseMessage response = await client.PatchAsync($"https://api.cloudflare.com/client/v4/zones/{zoneId}/firewall/rules/{ruleId}", new StringContent(jsonPayload, Encoding.UTF8, "application/json"));
+			HttpResponseMessage response = await client.PutAsync($"https://api.cloudflare.com/client/v4/zones/{zoneId}/firewall/rules/{ruleId}", content);
 
-			return response.IsSuccessStatusCode;
+			if (response.IsSuccessStatusCode)
+			{
+				string responseContent = await response.Content.ReadAsStringAsync();
+				return responseContent;
+			}
+			else
+			{
+				// Handle the error case as needed
+				return null;
+			}
 		}
+
+
+
+
 
 		static string[] ExtractIPAddresses(string expression)
 		{

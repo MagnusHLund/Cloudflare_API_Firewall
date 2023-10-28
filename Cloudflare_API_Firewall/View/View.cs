@@ -13,6 +13,12 @@ namespace Cloudflare_API_Firewall.View
 			Console.WriteLine(message);
 		}
 
+		/// <summary>
+		/// This method is responsible for changing the text colors.
+		/// Each color has a specific meaning:
+		/// error = red, success = green, Statement = blue, fetching = white
+		/// </summary>
+		/// <param name="color"></param>
 		internal void ChangeColor(ConsoleColor color)
 		{
 			Console.ForegroundColor = color;

@@ -29,7 +29,7 @@ namespace Cloudflare_API_Firewall.Controller
 
 				view.ChangeColor(ConsoleColor.White);
 				view.Message("Reading save file...");
-				string oldIp = fileSaving.ReadIpAddress();
+				string oldIp = fileSaving.ReadIpAddress().Trim();
 
 				view.ChangeColor(ConsoleColor.Blue);
 				view.Message("Previous IP Address retrieved");

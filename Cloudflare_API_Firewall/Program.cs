@@ -1,11 +1,11 @@
-﻿using Cloudflare_API_Firewall.Controller;
-using System;
-using System.Net;
+﻿using Newtonsoft.Json.Linq;
+using System.Text.RegularExpressions;
+using Cloudflare_API_Firewall.Controller;
 
 class Program
 {
-	static void Main()
+	static async Task Main()
 	{
-		new MainController().Start();
+		await new MainController().Start();
 	}
 }

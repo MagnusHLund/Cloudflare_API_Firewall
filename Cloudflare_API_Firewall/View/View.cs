@@ -12,5 +12,10 @@ namespace Cloudflare_API_Firewall.View
 		{
 			Console.WriteLine(message);
 		}
+
+		internal void ChangeColor(ConsoleColor color)
+		{
+			Console.ForegroundColor = color;
+		}
 	}
 }
